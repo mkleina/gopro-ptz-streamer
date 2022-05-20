@@ -1,0 +1,155 @@
+<html>
+
+<head>
+    <link rel="stylesheet" href="index.css">
+    <meta name="viewport" content="width=device-width,height=device-height,initial-scale=1.0" />
+
+    <script>
+        let socket = new WebSocket("ws://" + location.host + "/ws");
+
+        function up(event) {
+            console.log("UP");
+            var msg = {
+                command: "start",
+                axis: "y",
+                direction: -1
+            };
+            socket.send(JSON.stringify(msg));
+        }
+
+        function down(event) {
+            console.log("DOWN");
+            var msg = {
+                command: "start",
+                axis: "y",
+                direction: 1
+            };
+            socket.send(JSON.stringify(msg));
+        }
+
+        function left(event) {
+            console.log("LEFT");
+            var msg = {
+                command: "start",
+                axis: "x",
+                direction: -1
+            };
+            socket.send(JSON.stringify(msg));
+        }
+
+        function right(event) {
+            console.log("RIGHT");
+            var msg = {
+                command: "start",
+                axis: "x",
+                direction: 1
+            };
+            socket.send(JSON.stringify(msg));
+        }
+
+        function stop_x(event) {
+            console.log("STOP X");
+            var msg = {
+                command: "stop",
+                axis: "x"
+            };
+            socket.send(JSON.stringify(msg));
+        }
+
+        function stop_y(event) {
+            console.log("STOP Y");
+            var msg = {
+                command: "stop",
+                axis: "y"
+            };
+            socket.send(JSON.stringify(msg));
+        }
+
+        function set_quality(event) {
+            console.log("CHANGE QUALITY");
+            var msg = {
+                command: "set_quality",
+                value: this.value,
+            };
+            socket.send(JSON.stringify(msg));
+        }
+
+        function openFullscreen() {
+            console.log("FULLSCREEN")
+            document.documentElement.webkitRequestFullScreen();
+        }
+
+        window.addEventListener("load", function() {
+            document.getElementById("up").onmousedown = up;
+            document.getElementById("up").ontouchstart = up;
+            document.getElementById("up").onmouseup = stop_y;
+            document.getElementById("up").ontouchend = stop_y;
+
+            document.getElementById("down").onmousedown = down;
+            document.getElementById("down").ontouchstart = down;
+            document.getElementById("down").onmouseup = stop_y;
+            document.getElementById("down").ontouchend = stop_y;
+
+
+            document.getElementById("left").onmousedown = left;
+            document.getElementById("left").ontouchstart = left;
+            document.getElementById("left").onmouseup = stop_x;
+            document.getElementById("left").ontouchend = stop_x;
+
+            document.getElementById("right").onmousedown = right;
+            document.getElementById("right").ontouchstart = right;
+            document.getElementById("right").onmouseup = stop_x;
+            document.getElementById("right").ontouchend = stop_x;
+
+            document.ontouchend = document.onmouseup = function(event) {
+                stop_x(event);
+                stop_y(event);
+            }
+
+            document.getElementById("d-pad").oncontextmenu = function(event) {
+                event.preventDefault();
+                event.stopPropagation();
+                return false;
+            };
+
+            let radios = document.querySelectorAll('input[type=radio][name="quality"]');
+            Array.prototype.forEach.call(radios, function(radio) {
+                radio.addEventListener('change', set_quality);
+            });
+
+            document.getElementById("stream").ontouchend = openFullscreen;
+            document.getElementById("stream").onmouseup = openFullscreen;
+
+            socket.addEventListener('open', (event) => {
+                var msg = {
+                    command: "get_quality",
+                };
+                socket.send(JSON.stringify(msg));
+            });
+            socket.addEventListener('message', (event) => {
+                data_json = JSON.parse(event.data)
+                if (data_json.command == "get_quality") {
+                    document.getElementById(data_json.value).checked = true;
+                }
+            });
+        });
+    </script>
+</head>
+
+<body>
+    <div id="stream" class="stream">
+        <form class="quality" name="quality">
+            <input id="low" type="radio" name="quality" value="low" /><label for="low">LOW</label>
+            <input id="medium" type="radio" name="quality" value="medium" /><label for="medium">MEDIUM</label>
+            <input id="high" type="radio" name="quality" value="high" /><label for="high">HIGH</label>
+        </form>
+        <nav id="d-pad" class="d-pad">
+            <a id="up" class="up" href="#"></a>
+            <a id="right" class="right" href="#"></a>
+            <a id="down" class="down" href="#"></a>
+            <a id="left" class="left" href="#"></a>
+        </nav>
+    </div>
+</body>
+
+</html>
