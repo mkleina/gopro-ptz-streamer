@@ -16,7 +16,7 @@ GPIO.setmode(GPIO.BOARD)
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 BUZZER_PIN = 23
 
-api = FastAPI(debug=True)
+api = FastAPI(debug=False)
         
 # Sound on API startup
 @api.on_event("startup")

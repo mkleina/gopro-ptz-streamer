@@ -3,6 +3,7 @@ from turbojpeg import TurboJPEG
 import time
 import asyncio
 from fastapi.logger import logger
+from threading import Thread
 
 # Required libs: ffmeg, libgtk-3-0, libopenjp2-7, libatlas-base-dev, libsrtp2-dev
 # Required packages: pytuyrbojpeg
@@ -17,19 +18,51 @@ class CameraStream:
     SHOW_FPS = False
     
     def __init__(self, device_num) -> None:
+        self.cap = None
+
         # Initialize video capture for auto detected camera (device_num=-1) or any specified
-        self.cap = cv2.VideoCapture(device_num, cv2.CAP_V4L2)
+        self.connect_camera(device_num)
+
+        # Camera auto reconnection thread
+        Thread(target=self.reconnect_camera, args=[device_num]).start()
+    
+        self.__reset_frame_time()
+        self.set_quality(CameraStream.QUALITY_MEDIUM)
+
+    def reconnect_camera(self, device_num):
+        while (True):
+            if self.camera_connected(self.cap):
+                time.sleep(3)
+                continue
+            self.connect_camera(device_num)
+
+    def connect_camera(self, device_num):
+        while (True):
+            cap = cv2.VideoCapture(device_num, cv2.CAP_V4L2)
+
+            if not self.camera_connected(cap):
+                logger.error("cannot open camera %s, trying again" % (device_num))
+                time.sleep(3)
+                continue
+            
+            # Release previous capture
+            if self.cap is not None:
+                self.cap.release()
+
+            self.cap = cap
+            break
+
         self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
         self.cap.set(cv2.CAP_PROP_CONVERT_RGB, 0)
         self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 10)
         self.cap.set(cv2.CAP_PROP_FPS, CameraStream.FPS)
 
-        if not self.cap.isOpened():
-            raise RuntimeError('cannot open camera')
-        
-        self.__reset_frame_time()
-        self.set_quality(CameraStream.QUALITY_MEDIUM)
-        
+        self.log_camera_info()
+
+    def camera_connected(self, cap):
+        return cap is not None and cap.isOpened()
+
+    def log_camera_info(self):
         # Show values of the camera properties
         logger.info("CAP_PROP_FOURCC:", self.cap.get(cv2.CAP_PROP_FOURCC))
         logger.info("CAP_PROP_FRAME_WIDTH:", self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -77,6 +110,8 @@ class CameraStream:
         encode_end = time.time()
         
         if not ret:
+            logger.error("no image, releasing camera")
+            self.cap.release()
             raise StopAsyncIteration
 
         # Calculate FPS
